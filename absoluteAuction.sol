@@ -6,6 +6,7 @@ contract absoluteAuction{
     address seller;
     uint256 public maxBid;
     address public bidOwner;
+    address payable bidder;
 
     // time variables
     uint256 firstTimestamp;
@@ -15,7 +16,7 @@ contract absoluteAuction{
     mapping(address => uint) getMoneyBack;
 
     // no changes after the end of the auction process, initialized as false by default
-    bool public final;
+    bool public ended;
     
     // Events that will be emitted on changes.
     event HighestBidIncreased(address bidder, uint bid);
@@ -41,7 +42,7 @@ contract absoluteAuction{
     function addBid() public payable{
         
         require((firstTimestamp - block.timestamp) < maxTime, "No more bidding");
-        require(final==false, "The auction has ended");
+        require(ended==false, "The auction has ended");
         require(msg.value>maxBid, "Bid higher");
 
         if (maxBid != 0) {
@@ -55,13 +56,14 @@ contract absoluteAuction{
     
     // each bidder calls this function to take his money back
     function getBack() public returns(bool){
-        uint256 amount = getBackMoney[msg.sender];
+        uint256 amount = getMoneyBack[msg.sender];
         if (amount > 0){
-            getBackMoney[msg.sender] = 0;
+            getMoneyBack[msg.sender] = 0;
             // if the sending doesn't work it resets the value in the mapping 
             // and returns false
-            if (!msg.sender.send(amount)){
-                getBackMoney[msg.dender] = amount;
+            bidder = payable(address(msg.sender));
+            if ( !bidder.send(amount) ){
+                getMoneyBack[msg.sender] = amount;
                 return false;
             }
         }
@@ -70,12 +72,12 @@ contract absoluteAuction{
 
     // end the auction
     function endAuction() public{
-        require(!final,"The auction has already ended.");
+        require(!ended,"The auction has already ended.");
         require((firstTimestamp - block.timestamp) > maxTime, "The auction time not ended yet.");
 
-        final = true;
+        ended = true;
         emit EndOfAuction(bidOwner, maxBid);
-
+        address payable seller = payable(address(seller));
         seller.transfer(maxBid);
         // remains to send the item to the winner
     }
