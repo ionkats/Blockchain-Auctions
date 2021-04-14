@@ -1,0 +1,36 @@
+Absolute Auction:
+
+Only one auction can be implemented at a time with very specific characteristics. 
+The seller is the one that deploys the contract along with a time value for the prefered period of bidding. 
+This time value can be altered throughout the auction process with the function changeMaxTime(uint256 time).
+A bid can be placed by calling the function addBid() and paying the bid and if the value and the timing is valid 
+then the player and the bid become the current winning duo. When the current maxBidder changes, the previous holder 
+gets immediately his money back. If the transfer fails after the end of the auction the player can try to take his 
+money back with the function getBack(address bidder). Of course the final winner doesn't have access to this function 
+and cannot back out of the payment. If a bid is placed in the last 5 minutes of the time remaining, a full 5 minutes will 
+be available for bidding to surpass the previous bidder. This prevents any last minute bidding and winning. Thus, after 
+every bidding there must be at least 5 minutes available for extra bidding challenges. In order to prevent an eternal auction 
+of repeated biddings the seller can call the function finalCall and provide the final 5 minutes before the auction ends. No additional 
+time is given after that. (There could be extra time with the function changeMaxTime but this is not fair for the bidders, 
+and can be strategically manipulated by the seller.) After the proper time has passed, the function endAuction can be called 
+and then the transfer of the money to the seller and the item to the winner happens. 
+
+Gas values: (The length of the string message of the "require" can vary in gas cost)
+
+Deployment: transaction cost: 1463835 gas (can slightly change based on the value of time)
+(time=999)  execution cost: 1089667 gas
+
+addBid(): transaction cost: 94185 gas (bid=1 ether)
+          execution cost: 72913 gas
+
+changeMaxTime(time): transaction cost: 34700 gas (time = 2323)
+                     execution cost: 13172 gas
+
+finalCall(): transaction cost: 55211 gas 
+             execution cost: 33939 gas
+
+getBack(bidder): transaction cost: 25994 gas 
+                 execution cost: 3314 gas
+
+endAuction(): transaction cost: 34343 gas
+              execution cost: 28071 gas

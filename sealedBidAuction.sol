@@ -16,7 +16,7 @@ contract sealedBidAuction{
         allBids.push(bidHash); // list with the hashes of all bids
     }
 
-
+    // not for using it to encrypt, everything is public the encryption should be localy
     function testBidHash(uint256 bid, string memory salt, bytes32 bidHash) external{
         
     }
