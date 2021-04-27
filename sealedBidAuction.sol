@@ -10,18 +10,25 @@ contract sealedBidAuction{
     uint256 T4;
     uint256 F;
     uint N;
+    uint256 V; // upper bound for bids? why?
     string public state;
     
     struct Biddings {
         string ciphertext;
         uint256 commit;
+        bool validBid;
     }
     mapping(address => Biddings) bidders;
+    address[] listOfBidders;
     uint256 highestBid;
     address winner;
     uint256 timeDeployed;
     uint256 deposit;
     mapping(address => uint256) ledger;
+    
+    uint256[] zpkCommits;
+    address challengeBidder;
+    uint challengeBlockNumber;
     
     constructor(uint256 t1, uint256 t2, uint256 t3, uint256 t4, uint n, uint256 f, string memory pyblicKey) payable {
         timeDeployed = block.timestamp;
@@ -41,9 +48,11 @@ contract sealedBidAuction{
     function bid(uint256 comm) public payable {
         require((block.timestamp - timeDeployed)<T1, "The commitment period has passed.");
         require(msg.value>F,"Provide at least the appropriate amount.");
+        require(listOfBidders.length <= N," No more bidders allowed.");
         ledger[msg.sender] = msg.value - F;
         deposit = deposit + F;
         Biddings memory bidding = bidders[msg.sender];
+        listOfBidders.push(msg.sender);
         bidding.commit = comm;
     }
     
@@ -59,6 +68,37 @@ contract sealedBidAuction{
         require(keccak256(bytes(state))==keccak256("Init"),"Not valid state."); 
         uint256 time = block.timestamp - timeDeployed;
         require((time>T2)&&(time<T3),"It is not the claim the winner time.");
+        require(keccak256(bytes(bidders[probWinner].ciphertext)) != keccak256(bytes("")), "Not a bidder."); 
+        //also check if x,r are the commit values used by the probWinner.
+        // require x*G +r*H == bidders[probWinner].commit for G,H
+        // for G,H starting given values
+        winner = probWinner;
+        highestBid = x;
+        state = "Challenge";
     }
+    
+    function ZPKCommit(address B, uint256[] memory commits) public{
+        require(keccak256(bytes(state))==keccak256("Challenge"),"Not valid state.");
+        uint256 time = block.timestamp - timeDeployed;
+        require((time>T2)&&(time<T3),"It is not the right time.");
+        require(keccak256(bytes(bidders[B].ciphertext)) != keccak256(bytes("")), "Not a bidder.");
+        zpkCommits = commits;
+        challengeBidder = B;
+        challengeBlockNumber = block.number;
+        state = "Verify";
+    }
+    
+    function VerifyAll() public{
+        require(keccak256(bytes(state))==keccak256("Challenge"),"Not valid state.");
+        uint256 time = block.timestamp - timeDeployed;
+        require((time>T2)&&(time<T3),"It is not the right time.");
+        for (uint i; i < listOfBidders.length; i++){
+            if (listOfBidders[i] != winner){
+                require(bidders[listOfBidders[i]].validBid == true, "There is a non valid bid.");
+            }
+        }
+        state = "ValidWinner";
+    }
+    
     
 }
