@@ -1,0 +1,46 @@
+Second price/ Vicrey Sealed Bid Auction:
+
+Only one auction can be implemented at this contract and the winner pays the 
+second highest bid. This type of auction is proven to be truthfull. The seller 
+initilizes the value of the penalty (F) if a bidder tries to manipulate the auction process
+and 2 time values (T1 for the bidding period and T2 for the reveal period). The seller
+also provides F amount for the penalty of his own. The starter state sets to "Init" and the 
+auction process begins. Each bidder can provide a bid with the function bid(comm) along
+with a commitment comm which is a hash value (function: keccak256) of his bidding price and 
+some salt for the illusion of the closed envelope bid. The bidder must provide al least F 
+amount at his bidding for safety issues. This amount along with any excess money provided 
+will be returned if the bidder is not a winner at the end of the auction. The money to be 
+returned are saved at a mapping called ledger and with a struct named Biddings the information 
+of the commitment is saved in the contract. After the biding period T1 each participant must call
+the reveal(value, salt) function to verify the correctness of the bid. The bidder provides the 
+value of the bid with the salt that he used and then the contract checks these values 
+concatanated and hashed compared to the value of the commitment. If the bid was valid the 
+appropriate information are saved at the struct of Bidders. After the process of revealing the 
+bids ends then every one can call the winnerCalculation() function where the contract compares 
+the valid bids and provides a winner or not along the highestBid and secondHighestBid values. 
+The bidders who have not called the reveal function or haven't provided the valid values 
+are penalized and the amount F is not returned. In contrast if a participant provides valid 
+information and isn't the winner immediately gets his money back with the F value. In case 
+there is no winner found the state changes to "WinnerNo" and the seller himself is penalized 
+with the value F for not managing to implement a valid auction, otherwise his money are 
+returned. In the case of a valid winner after the process the state is changed to "WinnerYes" 
+and then the winner can call the winnerPaying() function for paying the appropriate amount and 
+receiving the auctioned item. In case he never calls the function the penalty F is kept from 
+the contract and never returned, otherwise he pays the secondHighestBid value and the remaining 
+are returned to him. Then the state gets its final value of "WinnerPaid". 
+
+Gas values:
+
+Deployment:
+
+
+bid(comm):
+
+
+reveal(value,salt):
+
+
+winnerCalculation():
+
+
+winnerPaying():
