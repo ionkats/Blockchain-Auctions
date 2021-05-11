@@ -16,17 +16,17 @@ contract sealedBidAuction{
         bool returned;
     }
     mapping(address => Biddings) bidders;
-    address[] listOfBidders;
-    uint256 secondHighestBid;
-    uint256 highestBid;
-    address winner;
+    address[] public listOfBidders;
+    uint256 public secondHighestBid;
+    uint256 public highestBid;
+    address public winner;
     uint256 timeDeployed;
     uint256 deposit;
     mapping(address => uint256) ledger;
     address seller;
     bool sellerReturned;
     
-    
+
     constructor(uint256 t1, uint256 t2, uint256 f) payable {
         timeDeployed = block.timestamp;
         require(msg.value>=f, "Provide the appropriate payment.");
@@ -45,19 +45,22 @@ contract sealedBidAuction{
     // called by participants to bid for the item.
     function bid(bytes32 comm) public payable {
         require((block.timestamp - timeDeployed)<T1, "The commitment period has passed.");
-        require(msg.value>F,"Provide at least the appropriate amount.");
+        require(msg.value>=F,"Provide at least the appropriate amount.");
         ledger[msg.sender] = msg.value - F;
         deposit = deposit + F;
-        Biddings memory bidding = bidders[msg.sender];
+        Biddings storage bidding = bidders[msg.sender];
         listOfBidders.push(msg.sender);
         bidding.commit = comm;
     }
+    
+    
     // called by participants to reveal the value of their bidding.
     function reveal(uint256 v, string memory salt) public{
         uint256 time = block.timestamp - timeDeployed;
         require((time>T1)&&(time<T2),"It is not the reveal time.");
         // checking if the commit is an empty string
-        require(bidders[msg.sender].commit[0] != 0, "No commitment was placed in your address");
+        bytes32 temp;
+        require(bidders[msg.sender].commit != temp, "No commitment was placed in your address");
         // abi.encodePacked concatenates strings and assists in changing the type of v to string.
         if ((bidders[msg.sender].commit) == keccak256(abi.encodePacked(v, salt))){
             bidders[msg.sender].validBid = true;
@@ -65,12 +68,11 @@ contract sealedBidAuction{
         }
     }
     
-    
 
     function winnerCalculation() public{
         uint256 time = block.timestamp - timeDeployed;
         require(time>T2,"The reveal time is not done.");
-        require(keccak256(bytes(state))!=keccak256("WinnerYes")||keccak256(bytes(state))!=keccak256("WinnerNo"),"Already called.");
+        require(keccak256(bytes(state))!=keccak256(bytes("WinnerYes"))||keccak256(bytes(state))!=keccak256(bytes("WinnerNo")),"Already called.");
         for (uint i=0; i< listOfBidders.length; i++){
             if (bidders[listOfBidders[i]].validBid == true){
                 if (bidders[listOfBidders[i]].value>highestBid) {
@@ -84,6 +86,13 @@ contract sealedBidAuction{
                     }
                     highestBid = bidders[listOfBidders[i]].value;
                     winner =listOfBidders[i];
+                }else{
+                    uint256 amount = ledger[listOfBidders[i]];
+                    if (bidders[listOfBidders[i]].returned == false){
+                        deposit -= F;
+                        bidders[listOfBidders[i]].returned = true;
+                        payable(listOfBidders[i]).transfer(amount + F);
+                    }
                 }
             }else{
                 // the bid was not valid, thus the contract keeps the amount F and returns the rest

@@ -3,7 +3,7 @@ Second price/ Vicrey Sealed Bid Auction:
 Only one auction can be implemented at this contract and the winner pays the 
 second highest bid. This type of auction is proven to be truthfull. The seller 
 initilizes the value of the penalty (F) if a bidder tries to manipulate the auction process
-and 2 time values (T1 for the bidding period and T2 for the reveal period). The seller
+and two time values (T1 for the bidding period and T2 for the reveal period). The seller
 also provides F amount for the penalty of his own. The starter state sets to "Init" and the 
 auction process begins. Each bidder can provide a bid with the function bid(comm) along
 with a commitment comm which is a hash value (function: keccak256) of his bidding price and 
@@ -31,17 +31,21 @@ are returned to him. Then the state gets its final value of "WinnerPaid".
 
 Gas values:
 
-Deployment: transaction cost 2481184 gas 
-            execution cost	1849548 gas
+Deployment: transaction cost 2830597 gas 
+            execution cost 2117261 gas
 
 
-bid(comm):
+bid(comm): transaction cost 82152 gas 
+           execution cost 58704 gas
 
 
-reveal(value,salt):
+reveal(value,salt): transaction cost 69708 gas 
+                    execution cost 47412 gas
 
 
-winnerCalculation():
+winnerCalculation(): transaction cost 206281 gas 
+                     execution cost 185009 gas
 
 
-winnerPaying():
+winnerPaying(): transaction cost 83081 gas 
+                execution cost 61809 gas
