@@ -31,7 +31,8 @@ are returned to him. Then the state gets its final value of "WinnerPaid".
 
 Gas values:
 
-Deployment:
+Deployment: transaction cost 2481184 gas 
+            execution cost	1849548 gas
 
 
 bid(comm):

@@ -29,15 +29,15 @@ contract sealedBidAuction{
     
     constructor(uint256 t1, uint256 t2, uint256 f) payable {
         timeDeployed = block.timestamp;
-        require(msg.value>=F, "Provide the appropriate payment.");
-        require((T1<T2), "Wrong time intervals.");
-        deposit = deposit + F ;
-        ledger[msg.sender] = msg.value - F;
+        require(msg.value>=f, "Provide the appropriate payment.");
+        require((t1<t2), "Wrong time intervals.");
+        deposit = deposit + f ;
+        ledger[msg.sender] = msg.value - f;
         seller = msg.sender;
         T1 = t1;
         T2 = t2;
         state = "Init";
-        // F is the penalty if someone tries to manipulate the auction.
+        // F is the penalty if someone tries to manipulate the auction (in wei).
         F = f;
     }
     
@@ -59,7 +59,7 @@ contract sealedBidAuction{
         // checking if the commit is an empty string
         require(bidders[msg.sender].commit[0] != 0, "No commitment was placed in your address");
         // abi.encodePacked concatenates strings and assists in changing the type of v to string.
-        if ((bidders[msg.sender].commit) == keccak256(abi.encodePacked( string(abi.encodePacked(bytes32(v))), salt))){
+        if ((bidders[msg.sender].commit) == keccak256(abi.encodePacked(v, salt))){
             bidders[msg.sender].validBid = true;
             bidders[msg.sender].value = v;
         }
