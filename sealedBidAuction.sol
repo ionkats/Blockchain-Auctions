@@ -19,7 +19,7 @@ contract sealedBidAuction{
     
     struct Biddings {
         string ciphertext;
-        uint256 commit;
+        uint256[] commit;
         bool validBid;
         bool returned;
     }
@@ -53,8 +53,8 @@ contract sealedBidAuction{
         auctioneer = msg.sender;
     }
     
-
-    function bid(uint256 comm) public payable {
+    // assuming the commit phase each participant sends a list of values, xG+rH, w1G+r1H, w2G+r2H, where wi,ri random values for later verification.
+    function bid(uint256[] memory comm) public payable {
         require((block.timestamp - timeDeployed)<T1, "The commitment period has passed.");
         require(msg.value>F,"Provide at least the appropriate amount.");
         require(listOfBidders.length <= N," No more bidders allowed.");
@@ -65,11 +65,11 @@ contract sealedBidAuction{
         bidding.commit = comm;
     }
     
-
+    // cipher is the outcome of encrupting (x,r) by the public key of the auctioneer
     function reveal(string memory cipher) public{
         uint256 time = block.timestamp - timeDeployed;
         require((time>T1)&&(time<T2),"It is not the reveal time.");
-        require(bidders[msg.sender].commit != 0, "No commitment was placed in your address");
+        require(bidders[msg.sender].commit[0] != 0, "No commitment was placed in your address");
         bidders[msg.sender].ciphertext = cipher;
     }
     
@@ -81,7 +81,7 @@ contract sealedBidAuction{
         require((time>T2)&&(time<T3),"It is not the claim the winner time.");
         require(keccak256(bytes(bidders[probWinner].ciphertext)) != keccak256(bytes("")), "Not a bidder."); 
         //also check if x,r are the commit values used by the probWinner.
-        // require x*G +r*H == bidders[probWinner].commit for G,H
+        // require x*G +r*H == bidders[probWinner].commit[0] for G,H
         // for G,H starting given values
         winner = probWinner;
         highestBid = x;
@@ -145,11 +145,12 @@ contract sealedBidAuction{
     function Timer() public{
         uint256 time = block.timestamp - timeDeployed;
         if (time>T3){
-            if (keccak256(bytes(state))!=keccak256("ValidProof")){
+            if ((keccak256(bytes(state))!=keccak256("ValidWinner"))||(keccak256(bytes(state))!=keccak256("WinnerPaid"))){
                 for (uint i; i < listOfBidders.length; i++){
                     uint256 amount = ledger[listOfBidders[i]];
                     if (bidders[listOfBidders[i]].returned==false){
                         bidders[listOfBidders[i]].returned = true;
+                        deposit = deposit - F;
                         payable(listOfBidders[i]).transfer(amount + F);
                     }            
                 }
@@ -157,7 +158,16 @@ contract sealedBidAuction{
                 uint256 amount = ledger[auctioneer];
                 if (auctioneerReturn==false){
                     auctioneerReturn = true;
+                    deposit = deposit - F;
                     payable(auctioneer).transfer(amount + F);
+                }
+                for (uint i; i < listOfBidders.length; i++){
+                    uint256 amount = ledger[listOfBidders[i]];
+                    if ((bidders[listOfBidders[i]].returned==false)&&(listOfBidders[i]!=winner)){
+                        bidders[listOfBidders[i]].returned = true;
+                        deposit = deposit - F;
+                        payable(listOfBidders[i]).transfer(amount + F);
+                    }            
                 }
 
             }
