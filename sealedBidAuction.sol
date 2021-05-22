@@ -13,6 +13,7 @@ contract sealedBidAuction{
     uint256 V; // upper bound for bids? why?
     uint256 G;
     uint256 H;
+    uint16 k = 5; // (times the protocol is implemented) defines the prob of cheating 1/ 2^k 
     string public state;
     address auctioneer;
     bool auctioneerReturn;
@@ -54,6 +55,7 @@ contract sealedBidAuction{
     }
     
     // assuming the commit phase each participant sends a list of values, xG+rH, w1G+r1H, w2G+r2H, where wi,ri random values for later verification.
+    // w1 in [0,q/2], w2 = w1 - q/2, x bid
     function bid(uint256[] memory comm) public payable {
         require((block.timestamp - timeDeployed)<T1, "The commitment period has passed.");
         require(msg.value>F,"Provide at least the appropriate amount.");
@@ -74,6 +76,7 @@ contract sealedBidAuction{
     }
     
 
+    // called by auctioneer who has access to all bids
     function claimWinner(address probWinner, uint256 x, uint256 r) public{
         //hash comparison less gas required compared to string comparison
         require(keccak256(bytes(state))==keccak256("Init"),"Not valid state."); 
@@ -85,12 +88,12 @@ contract sealedBidAuction{
         // for G,H starting given values
         winner = probWinner;
         highestBid = x;
-        state = "Challenge";
+        state = "Challenge1";
     }
-    
+
 
     function ZPKCommit(address B, uint256[] memory commits) public{
-        require(keccak256(bytes(state))==keccak256("Challenge"),"Not valid state.");
+        require(keccak256(bytes(state))==keccak256("Challenge1"),"Not valid state.");
         uint256 time = block.timestamp - timeDeployed;
         require((time>T2)&&(time<T3),"It is not the right time.");
         require(keccak256(bytes(bidders[B].ciphertext)) != keccak256(bytes("")), "Not a bidder.");
@@ -106,19 +109,22 @@ contract sealedBidAuction{
         uint256 time = block.timestamp - timeDeployed;
         require((time>T2)&&(time<T3),"It is not the right time.");
         bytes32 h = keccak256(abi.encodePacked(challengeBlockNumber));
-        bytes1 b = h[1];
-        if (b==0){
-            // first case verification 
-        }else{
-            // second case verification
+        for (uint i; i<k; i++){
+            bytes1 b = h[32-i];
+            if (b==0){
+                // first case verification 
+            }else{
+                // second case verification
+            }
         }
+        
         bidders[challengeBidder].validBid = true;
-        state = "Challenge";
+        state = "Challenge2";
     }
     
 
     function VerifyAll() public{
-        require(keccak256(bytes(state))==keccak256("Challenge"),"Not valid state.");
+        require(keccak256(bytes(state))==keccak256("Challenge2"),"Not valid state.");
         uint256 time = block.timestamp - timeDeployed;
         require((time>T2)&&(time<T3),"It is not the right time.");
         for (uint i; i < listOfBidders.length; i++){
@@ -129,6 +135,16 @@ contract sealedBidAuction{
         state = "ValidWinner";
     }
     
+
+    function checkFirstCase(uint256 value) internal returns(bool){
+
+    }
+
+
+    function checkSecondCase(uint256 value) internal returns(bool){
+
+    }
+
 
     function WinnerPay() public {
         require(keccak256(bytes(state))==keccak256("ValidWinner"),"Not valid state.");
@@ -167,7 +183,7 @@ contract sealedBidAuction{
                         bidders[listOfBidders[i]].returned = true;
                         deposit = deposit - F;
                         payable(listOfBidders[i]).transfer(amount + F);
-                    }            
+                    }
                 }
 
             }
