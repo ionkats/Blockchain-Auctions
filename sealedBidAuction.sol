@@ -18,10 +18,11 @@ contract sealedBidAuction{
     string public state;
     address auctioneer;
     bool auctioneerReturn;
+    string public pubKey;
     
     struct Biddings {
         string ciphertext;
-        uint256[] commit;
+        uint256 commit;
         bool validBid;
         bool returned;
     }
@@ -39,7 +40,7 @@ contract sealedBidAuction{
     uint challengeBlockNumber;
     
     
-    constructor(uint256 t1, uint256 t2, uint256 t3, uint256 t4, uint n, uint256 f, string memory pyblicKey) payable {
+    constructor(uint256 t1, uint256 t2, uint256 t3, uint256 t4, uint n, uint256 f, string memory publicKey) payable {
         timeDeployed = block.timestamp;
         require(msg.value>=F, "Provide the appropriate payment.");
         require((T1<T2)&&(T2<T3)&&(T3<T4), "Wrong time intervals.");
@@ -50,6 +51,7 @@ contract sealedBidAuction{
         T3 = t3;
         T4 = t4;
         N = n;
+        pubKey = publicKey;
         state = "Init";
         F = f;
         auctioneer = msg.sender;
@@ -58,9 +60,9 @@ contract sealedBidAuction{
     
     // assuming the commit phase each participant sends a list of values, xG+rH, w1G+r1H, w2G+r2H, where wi,ri random values for later verification.
     // w1 in [0,q/2], w2 = w1 - q/2, x bid
-    function bid(uint256[] memory comm) public payable {
+    function bid(uint256 comm) public payable {
         require((block.timestamp - timeDeployed)<T1, "The commitment period has passed.");
-        require(msg.value>F,"Provide at least the appropriate amount.");
+        require(msg.value>=F,"Provide at least the appropriate amount.");
         require(counter <= N," No more bidders allowed.");
         ledger[msg.sender] = msg.value - F;
         deposit = deposit + F;
@@ -74,7 +76,7 @@ contract sealedBidAuction{
     function reveal(string memory cipher) public{
         uint256 time = block.timestamp - timeDeployed;
         require((time>T1)&&(time<T2),"It is not the reveal time.");
-        require(bidders[msg.sender].commit[0] != 0, "No commitment was placed in your address");
+        require(bidders[msg.sender].commit != 0, "No commitment was placed in your address");
         bidders[msg.sender].ciphertext = cipher;
         listOfBidders.push(msg.sender);
     }
@@ -88,14 +90,14 @@ contract sealedBidAuction{
         require((time>T2)&&(time<T3),"It is not the claim the winner time.");
         require(keccak256(bytes(bidders[probWinner].ciphertext)) != keccak256(bytes("")), "Not a bidder."); 
         //also check if x,r are the commit values used by the probWinner.
-        require(x*G +r*H == bidders[probWinner].commit[0], "The values are not the commit of this bidder"); // for given G,H
+        require(x*G +r*H == bidders[probWinner].commit, "The values are not the commit of this bidder"); // for given G,H
         winner = probWinner;
         highestBid = x;
         state = "Challenge1";
     }
 
 
-    // for a bidder Bi a commit is w1,1 , r1,1 , w2,1 , r2,1, ... , w1,k , r1,k ,w2,k , r2,k
+    // for a bidder Bi a commit is W1,1 = w1,1*G+r1,1*H , W2,1 = w2,1*G+r2,1*H, ... , W1,k = w1,k*G+r1,k*H , W2,k=w2,k*G+r2,k*H a list of [W11,W12,W21,W22,...,W1k,W2k]
     function ZPKCommit(address Bi, uint256[] memory commits) public{
         require(keccak256(bytes(state))==keccak256("Challenge1"),"Not valid state.");
         uint256 time = block.timestamp - timeDeployed;
@@ -111,6 +113,7 @@ contract sealedBidAuction{
     // by knowing the challengeBlockNumber sends the appropriate responses based on the bits and the 
     // commits he sent along with the values of the bid the challengeBidder, response is a list with k items.
     function ZPKVerify(uint256[] memory response) public{
+        uint parser;
         require(keccak256(bytes(state))==keccak256("Verify"), "Not valid state.");
         uint256 time = block.timestamp - timeDeployed;
         require((time>T2)&&(time<T3),"It is not the right time.");
@@ -118,11 +121,13 @@ contract sealedBidAuction{
         for (uint j; j<k; j++){
             bytes1 b = h[32-j];
             if (b==0){
-                require(checkFirstCase(response[j], j), "There is a non verified bidder.");
+                require(checkFirstCase(response, j, parser), "There is a non verified bidder.");
                 // first case verification Rj = w1j, r1j, w2j, r2j
+                parser +=4;
             }else{
-                require(checkSecondCase(response[j], j), "There is a non verified bidder.");
+                require(checkSecondCase(response, j, parser), "There is a non verified bidder.");
                 // second case verification Rj = (xj+wzj), (uj+rzj), z in{0,1}
+                parser +=3;
             }
         }
         bidders[challengeBidder].validBid = true;
@@ -130,24 +135,20 @@ contract sealedBidAuction{
     }
         
 
-    function checkFirstCase(uint256 value, uint j) internal returns(bool){
-        // by value being a list we check the following
-
-        // if (((value[0]*G +value[1]*H) == zpkCommits[j][0]) && ((value[3]*G +value[4]*H) == zpkCommits[j][1])){
-        //     return true;
-        // }
-        // return false;
+    function checkFirstCase(uint256[] memory value, uint j, uint p) internal view returns(bool){
+        if (((value[p]*G +value[p+1]*H) == zpkCommits[2*j]) && ((value[p+2]*G +value[p+3]*H) == zpkCommits[2*j+1])){
+            return true;
+        }
+        return false;
     }
 
 
-    function checkSecondCase(uint256 value, uint j) internal returns(bool){
-        // by value being a list we check the following
-
-        // uint256 tempCommit = bidders[challengeBidder].commit[0];
-        // if ((value[0]*G +value[1]*H) == (tempCommit + zpkCommits[j][value[2]]) {
-        //     return true;
-        // }
-        // return false;
+    function checkSecondCase(uint256[] memory value, uint j, uint p) internal view returns(bool){
+        uint256 tempCommit = bidders[challengeBidder].commit;
+        if ((value[p]*G +value[p+1]*H) == (tempCommit + zpkCommits[2*j+value[p+2]])) {
+            return true;
+        }
+        return false;
     }
 
 
@@ -265,7 +266,7 @@ contract sealedBidAuction{
     // function checkSecondCase(uint256 value, uint i) internal returns(bool){
     //     // by value being a list we check the following
 
-    //     // uint256 tempCommit = bidders[challengeBidder[i]].commit[0];
+    //     // uint256 tempCommit = bidders[challengeBidder[i]].commit;
     //     // if ((value[0]*G +value[1]*H) == (tempCommit + zpkCommits[i][value[2]]) {
     //     //     return true;
     //     // }
