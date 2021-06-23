@@ -9,11 +9,10 @@ contract sealedBidAuction{
     uint256 T3;
     uint256 T4;
     uint256 F;
-    uint N;
-    uint256 V; // upper bound for bids? why?
-    uint256 G;
-    uint256 H;
-    uint16 k = 5; // (times the protocol is implemented) defines the prob of cheating 1/ 2^k 
+    uint256 G = 7;
+    uint256 H = 3;
+    uint256 q=21888242871839275222246405745257275088696311157297823662689037894645226208583;
+    uint16 k = 1; // (times the protocol is implemented) defines the prob of cheating 1/ 2^k 
     uint counter;
     string public state;
     address auctioneer;
@@ -24,6 +23,7 @@ contract sealedBidAuction{
         string ciphertext;
         uint256 commit;
         bool validBid;
+        bool validDelta;
         bool returned;
     }
 
@@ -40,7 +40,7 @@ contract sealedBidAuction{
     uint challengeBlockNumber;
     
     
-    constructor(uint256 t1, uint256 t2, uint256 t3, uint256 t4, uint n, uint256 f, string memory publicKey) payable {
+    constructor(uint256 t1, uint256 t2, uint256 t3, uint256 t4, uint256 f, string memory publicKey) payable {
         timeDeployed = block.timestamp;
         require(msg.value>=F, "Provide the appropriate payment.");
         require((T1<T2)&&(T2<T3)&&(T3<T4), "Wrong time intervals.");
@@ -50,7 +50,7 @@ contract sealedBidAuction{
         T2 = t2;
         T3 = t3;
         T4 = t4;
-        N = n;
+        // N = n;
         pubKey = publicKey;
         state = "Init";
         F = f;
@@ -58,12 +58,13 @@ contract sealedBidAuction{
     }
     
     
-    // assuming the commit phase each participant sends a list of values, xG+rH, w1G+r1H, w2G+r2H, where wi,ri random values for later verification.
+    // assuming the commit phase each participant sends a of value xG+rH
+    // x bid, r random modq
     // w1 in [0,q/2], w2 = w1 - q/2, x bid
     function bid(uint256 comm) public payable {
         require((block.timestamp - timeDeployed)<T1, "The commitment period has passed.");
         require(msg.value>=F,"Provide at least the appropriate amount.");
-        require(counter <= N," No more bidders allowed.");
+        require(msg.value<q/2,"Provide at least the appropriate amount.");
         ledger[msg.sender] = msg.value - F;
         deposit = deposit + F;
         Biddings storage bidding = bidders[msg.sender];
@@ -72,7 +73,7 @@ contract sealedBidAuction{
     }
     
 
-    // cipher is the outcome of encrupting (x,r) by the public key of the auctioneer
+    // cipher is the outcome of encrypting (x,r) by the public key of the auctioneer
     function reveal(string memory cipher) public{
         uint256 time = block.timestamp - timeDeployed;
         require((time>T1)&&(time<T2),"It is not the reveal time.");
@@ -93,13 +94,13 @@ contract sealedBidAuction{
         require(x*G +r*H == bidders[probWinner].commit, "The values are not the commit of this bidder"); // for given G,H
         winner = probWinner;
         highestBid = x;
-        state = "Challenge1";
+        state = "Challenge";
     }
 
 
     // for a bidder Bi a commit is W1,1 = w1,1*G+r1,1*H , W2,1 = w2,1*G+r2,1*H, ... , W1,k = w1,k*G+r1,k*H , W2,k=w2,k*G+r2,k*H a list of [W11,W12,W21,W22,...,W1k,W2k]
     function ZPKCommit(address Bi, uint256[] memory commits) public{
-        require(keccak256(bytes(state))==keccak256("Challenge1"),"Not valid state.");
+        require(keccak256(bytes(state))==keccak256("Challenge"),"Not valid state.");
         uint256 time = block.timestamp - timeDeployed;
         require((time>T2)&&(time<T3),"It is not the right time.");
         require(keccak256(bytes(bidders[Bi].ciphertext)) != keccak256(bytes("")), "Not a bidder.");
@@ -131,7 +132,13 @@ contract sealedBidAuction{
             }
         }
         bidders[challengeBidder].validBid = true;
-        state = "Challenge2";
+
+        // check delta value for inequality
+        uint256 delta = (bidders[winner].commit - bidders[challengeBidder].commit)%q;
+        if ((delta<q/2) && (delta>=0)){
+            bidders[challengeBidder].validDelta = true;
+        }
+        state = "Challenge";
     }
         
 
@@ -154,7 +161,7 @@ contract sealedBidAuction{
 
     //if the auctioneer keeps someone off the challenge the auction is not continued
     function VerifyAll() public{
-        require(keccak256(bytes(state))==keccak256("Challenge2"),"Not valid state.");
+        require(keccak256(bytes(state))==keccak256("Challenge"),"Not valid state.");
         uint256 time = block.timestamp - timeDeployed;
         require((time>T2)&&(time<T3),"It is not the right time.");
         for (uint i; i < listOfBidders.length; i++){
@@ -198,11 +205,11 @@ contract sealedBidAuction{
                     payable(auctioneer).transfer(amount + F);
                 }
                 for (uint i; i < listOfBidders.length; i++){
-                    uint256 amount = ledger[listOfBidders[i]];
+                    uint256 amount1 = ledger[listOfBidders[i]];
                     if ((bidders[listOfBidders[i]].returned==false)&&(listOfBidders[i]!=winner)){
                         bidders[listOfBidders[i]].returned = true;
                         deposit = deposit - F;
-                        payable(listOfBidders[i]).transfer(amount + F);
+                        payable(listOfBidders[i]).transfer(amount1 + F);
                     }
                 }
 
@@ -218,7 +225,7 @@ contract sealedBidAuction{
 
     // // for every bidder i a commit is w1,i , r1,i , w2,i , r2,i
     // function ZPKCommit(address[] memory B, uint256[] memory commits) public{
-    //     require(keccak256(bytes(state))==keccak256("Challenge1"),"Not valid state.");
+    //     require(keccak256(bytes(state))==keccak256("Challenge"),"Not valid state.");
     //     uint256 time = block.timestamp - timeDeployed;
     //     require((time>T2)&&(time<T3),"It is not the right time.");
     //     for (uint i; i<B.length;i++){
@@ -249,7 +256,7 @@ contract sealedBidAuction{
     //         }
     //         bidders[challengeBidder[i]].validBid = true;
     //     }
-    //     state = "Challenge2";
+    //     state = "Challenge";
     // }
         
 
