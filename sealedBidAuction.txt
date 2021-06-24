@@ -1,0 +1,55 @@
+
+TESTING VALUES
+
+deploy: 
+60,120,240,300,1,0x14723A09ACff6D2A60DcdF7aA4AFf308FDDC160C
+
+bid: 
+1st--- x=3 r=3 => 3*7+3*2 = 21+6 = 27
+
+2nd--- x=4 r=5 => 4*7+5*2 = 28+10 = 38
+
+3rd--- x=1 r=8 => 1*7+8*2 = 7+16 = 23
+
+
+reveal:
+1st---
+	920821d206d309819ed7bfaaba44179d6271bb6f691e600229fdffec02489b50
+2nd---
+	e1863a1eb35c350e7c76c1a244ad22d06ae4143113621664f3b8f58f2d47b473
+3rd---
+	ae23680e0669f7a428d657f5f76c697009c67db227b74bfb2cdca73f1749ace8
+
+claimWinner:
+
+2nd address: 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2,4,5
+
+ZKPCommit:
+1st--- w11=2, r11=2, w21=4, r21=4 (W11=2*7+2*2=18, W21=4*7+4*2=36)
+	0x5B38Da6a701c568545dCfcB03FcB875f56beddC4,[18,36]
+
+3rd--- w11=3, r11=5, w21=1, r21=4 (w11=3*7+5*2=31, W21=1*7+4*2=15)
+	0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db,[31,15]
+
+ZKPVerify:
+1st b=0: [2,2,4,4]
+    b=1: [5,5,0]
+	 [7,7,1]
+2nd b=0: [3,5,1,4]
+    b=1: [4,13,0]
+	 [2,12,1]
+	
+
+
+
+
+
+deployment: execution cost 3291309 
+bid: execution cost 119910 
+reveal: execution cost 143537 
+claimWinner: execution cost 141188 
+ZPKCommit: execution cost 179304 
+ZPKVerify: execution cost 88790 
+VerifyAll: execution cost 53774 
+winnerPay: execution cost 71319 
+Timer: execution cost 104292 

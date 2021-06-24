@@ -42,8 +42,6 @@ contract sealedBidAuction{
     
     constructor(uint256 t1, uint256 t2, uint256 t3, uint256 t4, uint256 f, string memory publicKey) payable {
         timeDeployed = block.timestamp;
-        require(msg.value>=F, "Provide the appropriate payment.");
-        require((T1<T2)&&(T2<T3)&&(T3<T4), "Wrong time intervals.");
         deposit = deposit + F ;
         ledger[msg.sender] = msg.value - F;
         T1 = t1;
@@ -55,6 +53,8 @@ contract sealedBidAuction{
         state = "Init";
         F = f;
         auctioneer = msg.sender;
+        require(msg.value>=F, "Provide the appropriate payment.");
+        require((T1<T2)&&(T2<T3)&&(T3<T4), "Wrong time intervals.");
     }
     
     
@@ -120,7 +120,7 @@ contract sealedBidAuction{
         require((time>T2)&&(time<T3),"It is not the right time.");
         bytes32 h = keccak256(abi.encodePacked(challengeBlockNumber));
         for (uint j; j<k; j++){
-            bytes1 b = h[32-j];
+            bytes1 b = h[31-j];
             if (b==0){
                 require(checkFirstCase(response, j, parser), "There is a non verified bidder.");
                 // first case verification Rj = w1j, r1j, w2j, r2j
