@@ -1,7 +1,7 @@
 pragma solidity ^0.8.3;
 // import "@nomiclabs/builder/console.sol";
 
-contract sealedBidAuction{
+contract sealedBidAuction {
     
     //initialized by seller
     uint256 T1;
@@ -11,7 +11,7 @@ contract sealedBidAuction{
     uint256 F;
     uint256 G = 7;
     uint256 H = 3;
-    uint256 q=21888242871839275222246405745257275088696311157297823662689037894645226208583;
+    uint256 q = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
     uint16 k = 1; // (times the protocol is implemented) defines the prob of cheating 1/ 2^k 
     uint counter;
     string public state;
@@ -39,8 +39,14 @@ contract sealedBidAuction{
     address challengeBidder;
     uint challengeBlockNumber;
     
-    
-    constructor(uint256 t1, uint256 t2, uint256 t3, uint256 t4, uint256 f, string memory publicKey) payable {
+    constructor(
+        uint256 t1, 
+        uint256 t2, 
+        uint256 t3, 
+        uint256 t4, 
+        uint256 f, 
+        string memory publicKey
+        ) payable {
         timeDeployed = block.timestamp;
         deposit = deposit + F ;
         ledger[msg.sender] = msg.value - F;
@@ -53,56 +59,55 @@ contract sealedBidAuction{
         state = "Init";
         F = f;
         auctioneer = msg.sender;
-        require(msg.value>=F, "Provide the appropriate payment.");
-        require((T1<T2)&&(T2<T3)&&(T3<T4), "Wrong time intervals.");
+        require(msg.value >= F, "Provide the appropriate payment.");
+        require((T1<T2) && (T2<T3) && (T3<T4), "Wrong time intervals.");
     }
-    
     
     // assuming the commit phase each participant sends a of value xG+rH
     // x bid, r random modq
     // w1 in [0,q/2], w2 = w1 - q/2, x bid
     function bid(uint256 comm) public payable {
-        require((block.timestamp - timeDeployed)<T1, "The commitment period has passed.");
-        require(msg.value>=F,"Provide at least the appropriate amount.");
-        require(msg.value<q/2,"Provide at least the appropriate amount.");
+        require((block.timestamp - timeDeployed) < T1, "The commitment period has passed.");
+        require(msg.value >=F , "Provide at least the appropriate amount.");
+        require(msg.value < q/2, "Provide at least the appropriate amount.");
         ledger[msg.sender] = msg.value - F;
         deposit = deposit + F;
         Biddings storage bidding = bidders[msg.sender];
         bidding.commit = comm;
         counter +=1;
     }
-    
 
     // cipher is the outcome of encrypting (x,r) by the public key of the auctioneer
-    function reveal(string memory cipher) public{
+    function reveal(string memory cipher) public {
         uint256 time = block.timestamp - timeDeployed;
-        require((time>T1)&&(time<T2),"It is not the reveal time.");
+        require((time>T1) && (time<T2), "It is not the reveal time.");
         require(bidders[msg.sender].commit != 0, "No commitment was placed in your address");
         bidders[msg.sender].ciphertext = cipher;
         listOfBidders.push(msg.sender);
     }
-    
 
     // called by auctioneer who has access to all bids
-    function claimWinner(address probWinner, uint256 x, uint256 r) public{
+    function claimWinner(address probWinner, uint256 x, uint256 r) public {
         //hash comparison less gas required compared to string comparison
-        require(keccak256(bytes(state))==keccak256("Init"),"Not valid state."); 
+        require(keccak256(bytes(state)) == keccak256("Init"),"Not valid state."); 
         uint256 time = block.timestamp - timeDeployed;
-        require((time>T2)&&(time<T3),"It is not the claim the winner time.");
-        require(keccak256(bytes(bidders[probWinner].ciphertext)) != keccak256(bytes("")), "Not a bidder."); 
+        require((time>T2) && (time<T3), "It is not the claim the winner time.");
+        require(keccak256(bytes(bidders[probWinner].ciphertext)) != keccak256(bytes("")), 
+                "Not a bidder."); 
         //also check if x,r are the commit values used by the probWinner.
-        require(x*G +r*H == bidders[probWinner].commit, "The values are not the commit of this bidder"); // for given G,H
+        require(x*G +r*H == bidders[probWinner].commit, 
+                "The values are not the commit of this bidder"); // for given G,H
         winner = probWinner;
         highestBid = x;
         state = "Challenge";
     }
 
-
-    // for a bidder Bi a commit is W1,1 = w1,1*G+r1,1*H , W2,1 = w2,1*G+r2,1*H, ... , W1,k = w1,k*G+r1,k*H , W2,k=w2,k*G+r2,k*H a list of [W11,W12,W21,W22,...,W1k,W2k]
-    function ZPKCommit(address Bi, uint256[] memory commits) public{
-        require(keccak256(bytes(state))==keccak256("Challenge"),"Not valid state.");
+    // for a bidder Bi a commit is W1,1 = w1,1*G+r1,1*H , W2,1 = w2,1*G+r2,1*H, ... , 
+    // W1,k = w1,k*G+r1,k*H , W2,k=w2,k*G+r2,k*H a list of [W11,W12,W21,W22,...,W1k,W2k]
+    function ZPKCommit(address Bi, uint256[] memory commits) public {
+        require(keccak256(bytes(state)) == keccak256("Challenge"),"Not valid state.");
         uint256 time = block.timestamp - timeDeployed;
-        require((time>T2)&&(time<T3),"It is not the right time.");
+        require((time>T2) && (time<T3), "It is not the right time.");
         require(keccak256(bytes(bidders[Bi].ciphertext)) != keccak256(bytes("")), "Not a bidder.");
         zpkCommits = commits;
         challengeBidder = Bi;
@@ -110,23 +115,24 @@ contract sealedBidAuction{
         state = "Verify";
     }
 
-
     // by knowing the challengeBlockNumber sends the appropriate responses based on the bits and the 
     // commits he sent along with the values of the bid the challengeBidder, response is a list with k items.
-    function ZPKVerify(uint256[] memory response) public{
+    function ZPKVerify(uint256[] memory response) public {
         uint parser;
-        require(keccak256(bytes(state))==keccak256("Verify"), "Not valid state.");
+        require(keccak256(bytes(state)) == keccak256("Verify"), "Not valid state.");
         uint256 time = block.timestamp - timeDeployed;
-        require((time>T2)&&(time<T3),"It is not the right time.");
+        require((time>T2) && (time<T3), "It is not the right time.");
         bytes32 h = keccak256(abi.encodePacked(challengeBlockNumber));
-        for (uint j; j<k; j++){
+        for (uint j; j<k; j++) {
             bytes1 b = h[31-j];
-            if (b==0){
-                require(checkFirstCase(response, j, parser), "There is a non verified bidder.");
+            if (b==0) {
+                require(checkFirstCase(response, j, parser), 
+                        "There is a non verified bidder.");
                 // first case verification Rj = w1j, r1j, w2j, r2j
                 parser +=4;
-            }else{
-                require(checkSecondCase(response, j, parser), "There is a non verified bidder.");
+            } else {
+                require(checkSecondCase(response, j, parser), 
+                        "There is a non verified bidder.");
                 // second case verification Rj = (xj+wzj), (uj+rzj), z in{0,1}
                 parser +=3;
             }
@@ -135,22 +141,39 @@ contract sealedBidAuction{
 
         // check delta value for inequality
         uint256 delta = (bidders[winner].commit - bidders[challengeBidder].commit)%q;
-        if ((delta<q/2) && (delta>=0)){
+        if ((delta<q/2) && (delta>=0)) {
             bidders[challengeBidder].validDelta = true;
         }
         state = "Challenge";
     }
         
 
-    function checkFirstCase(uint256[] memory value, uint j, uint p) internal view returns(bool){
-        if (((value[p]*G +value[p+1]*H) == zpkCommits[2*j]) && ((value[p+2]*G +value[p+3]*H) == zpkCommits[2*j+1])){
+    function checkFirstCase(
+        uint256[] memory value, 
+        uint j, 
+        uint p
+        ) 
+        internal 
+        view 
+        returns(bool)
+        {
+        if (((value[p]*G +value[p+1]*H) == zpkCommits[2*j]) && 
+            ((value[p+2]*G +value[p+3]*H) == zpkCommits[2*j+1])) {
             return true;
         }
         return false;
     }
 
 
-    function checkSecondCase(uint256[] memory value, uint j, uint p) internal view returns(bool){
+    function checkSecondCase(
+        uint256[] memory value, 
+        uint j, 
+        uint p
+        ) 
+        internal 
+        view 
+        returns(bool) 
+        {
         uint256 tempCommit = bidders[challengeBidder].commit;
         if ((value[p]*G +value[p+1]*H) == (tempCommit + zpkCommits[2*j+value[p+2]])) {
             return true;
@@ -160,13 +183,14 @@ contract sealedBidAuction{
 
 
     //if the auctioneer keeps someone off the challenge the auction is not continued
-    function VerifyAll() public{
-        require(keccak256(bytes(state))==keccak256("Challenge"),"Not valid state.");
+    function VerifyAll() public {
+        require(keccak256(bytes(state)) == keccak256("Challenge"), "Not valid state.");
         uint256 time = block.timestamp - timeDeployed;
-        require((time>T2)&&(time<T3),"It is not the right time.");
-        for (uint i; i < listOfBidders.length; i++){
-            if (listOfBidders[i] != winner){
-                require(bidders[listOfBidders[i]].validBid == true, "There is a non valid bidder.");
+        require((time>T2) && (time<T3), "It is not the right time.");
+        for (uint i; i < listOfBidders.length; i++) {
+            if (listOfBidders[i] != winner) {
+                require(bidders[listOfBidders[i]].validBid == true, 
+                        "There is a non valid bidder.");
             }
         }
         state = "ValidWinner";
@@ -174,10 +198,10 @@ contract sealedBidAuction{
 
 
     function WinnerPay() public {
-        require(keccak256(bytes(state))==keccak256("ValidWinner"),"Not valid state.");
+        require(keccak256(bytes(state)) == keccak256("ValidWinner"), "Not valid state.");
         uint256 time = block.timestamp - timeDeployed;
-        require((time>T3)&&(time<T4),"It is not the right time.");
-        require(msg.sender==winner, "You are not the winner.");
+        require((time>T3) && (time<T4), "It is not the right time.");
+        require(msg.sender == winner, "You are not the winner.");
         require(ledger[msg.sender] > highestBid-F, "You should pay more.");
         ledger[msg.sender] = ledger[msg.sender] - highestBid + F;
         deposit = deposit + highestBid - F;
@@ -185,38 +209,38 @@ contract sealedBidAuction{
     }
 
 
-    function Timer() public{
+    function Timer() public {
         uint256 time = block.timestamp - timeDeployed;
-        if (time>T3){
-            if ((keccak256(bytes(state))!=keccak256("ValidWinner"))||(keccak256(bytes(state))!=keccak256("WinnerPaid"))){
-                for (uint i; i < listOfBidders.length; i++){
+        if (time > T3) {
+            if ((keccak256(bytes(state)) != keccak256("ValidWinner"))||
+                (keccak256(bytes(state)) != keccak256("WinnerPaid"))) {
+                for (uint i; i<listOfBidders.length; i++){
                     uint256 amount = ledger[listOfBidders[i]];
-                    if (bidders[listOfBidders[i]].returned==false){
+                    if (bidders[listOfBidders[i]].returned==false) {
                         bidders[listOfBidders[i]].returned = true;
                         deposit = deposit - F;
                         payable(listOfBidders[i]).transfer(amount + F);
                     }            
                 }
-            }else{
+            } else {
                 uint256 amount = ledger[auctioneer];
-                if (auctioneerReturn==false){
+                if (auctioneerReturn == false) {
                     auctioneerReturn = true;
                     deposit = deposit - F;
                     payable(auctioneer).transfer(amount + F);
                 }
-                for (uint i; i < listOfBidders.length; i++){
+                for (uint i; i<listOfBidders.length; i++) {
                     uint256 amount1 = ledger[listOfBidders[i]];
-                    if ((bidders[listOfBidders[i]].returned==false)&&(listOfBidders[i]!=winner)){
+                    if ((bidders[listOfBidders[i]].returned==false) &&
+                        (listOfBidders[i]!=winner)) {
                         bidders[listOfBidders[i]].returned = true;
                         deposit = deposit - F;
                         payable(listOfBidders[i]).transfer(amount1 + F);
                     }
                 }
-
             }
         }
     }
-    
 }
 
 
